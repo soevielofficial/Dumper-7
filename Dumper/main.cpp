@@ -10,74 +10,70 @@
 
 #include "Generators/Generator.h"
 
-enum class EFortToastType : uint8
-{
+enum class EFortToastType : uint8 {
         Default                        = 0,
         Subdued                        = 1,
         Impactful                      = 2,
         EFortToastType_MAX             = 3,
 };
 
-DWORD MainThread(HMODULE Module)
-{
-	AllocConsole();
-	FILE* Dummy;
-	freopen_s(&Dummy, "CONOUT$", "w", stderr);
-	freopen_s(&Dummy, "CONIN$", "r", stdin);
+DWORD MainThread(HMODULE Module) {
+	MessageBoxA(NULL, "Dumper-7 is ready. Press INSERT to start dumping.", "Dumper-7", MB_OK | MB_ICONINFORMATION);
+	FILE* Dummy = nullptr;
+	while (true) {
+		if (GetAsyncKeyState(VK_INSERT) & 1) {
+			AllocConsole();
 
-	std::cerr << "Started Generation [Dumper-7]!\n";
+			freopen_s(&Dummy, "CONOUT$", "w", stderr);
+			freopen_s(&Dummy, "CONIN$", "r", stdin);
+			std::cerr << "Started Generation [Dumper-7]!\n";
 
-	Settings::Config::Load();
+			Settings::Config::Load();
 
-	if (Settings::Config::SleepTimeout > 0)
-	{
-		std::cerr << "Sleeping for " << Settings::Config::SleepTimeout << "ms...\n";
-		Sleep(Settings::Config::SleepTimeout);
-	}
+			if (Settings::Config::SleepTimeout > 0) {
+				std::cerr << "Sleeping for " << Settings::Config::SleepTimeout << "ms...\n";
+				Sleep(Settings::Config::SleepTimeout);
+			}
 
-	auto DumpStartTime = std::chrono::high_resolution_clock::now();
+			auto DumpStartTime = std::chrono::high_resolution_clock::now();
 
-	Generator::InitEngineCore();
-	Generator::InitInternal();
+			Generator::InitEngineCore();
+			Generator::InitInternal();
 
-	if (Settings::Generator::GameName.empty() && Settings::Generator::GameVersion.empty())
-	{
-		// Only Possible in Main()
-		FString Name;
-		FString Version;
-		UEClass Kismet = ObjectArray::FindClassFast("KismetSystemLibrary");
-		UEFunction GetGameName = Kismet.GetFunction("KismetSystemLibrary", "GetGameName");
-		UEFunction GetEngineVersion = Kismet.GetFunction("KismetSystemLibrary", "GetEngineVersion");
+			if (Settings::Generator::GameName.empty() && Settings::Generator::GameVersion.empty()) {
+				FString Name;
+				FString Version;
+				UEClass Kismet = ObjectArray::FindClassFast("KismetSystemLibrary");
+				UEFunction GetGameName = Kismet.GetFunction("KismetSystemLibrary", "GetGameName");
+				UEFunction GetEngineVersion = Kismet.GetFunction("KismetSystemLibrary", "GetEngineVersion");
 
-		Kismet.ProcessEvent(GetGameName, &Name);
-		Kismet.ProcessEvent(GetEngineVersion, &Version);
+				Kismet.ProcessEvent(GetGameName, &Name);
+				Kismet.ProcessEvent(GetEngineVersion, &Version);
 
-		Settings::Generator::GameName = Name.ToString();
-		Settings::Generator::GameVersion = Version.ToString();
-	}
+				Settings::Generator::GameName = Name.ToString();
+				Settings::Generator::GameVersion = Version.ToString();
+			}
 
-	std::cerr << "GameName: " << Settings::Generator::GameName << "\n";
-	std::cerr << "GameVersion: " << Settings::Generator::GameVersion << "\n\n";
+			std::cerr << "GameName: " << Settings::Generator::GameName << "\n";
+			std::cerr << "GameVersion: " << Settings::Generator::GameVersion << "\n\n";
 
-	std::cerr << "FolderName: " << (Settings::Generator::GameVersion + '-' + Settings::Generator::GameName) << "\n\n";
+			std::cerr << "FolderName: " << (Settings::Generator::GameVersion + '-' + Settings::Generator::GameName) << "\n\n";
 
-	Generator::Generate<CppGenerator>();
-	Generator::Generate<MappingGenerator>();
-	Generator::Generate<IDAMappingGenerator>();
-	Generator::Generate<DumpspaceGenerator>();
+			Generator::Generate<CppGenerator>();
+			Generator::Generate<MappingGenerator>();
+			Generator::Generate<IDAMappingGenerator>();
+			Generator::Generate<DumpspaceGenerator>();
 
-	auto DumpFinishTime = std::chrono::high_resolution_clock::now();
+			auto DumpFinishTime = std::chrono::high_resolution_clock::now();
 
-	std::chrono::duration<double, std::milli> DumpTime = DumpFinishTime - DumpStartTime;
+			std::chrono::duration<double, std::milli> DumpTime = DumpFinishTime - DumpStartTime;
 
-	std::cerr << "\n\nGenerating SDK took (" << DumpTime.count() << "ms)\n\n\n";
+			std::cerr << "\n\nGenerating SDK took (" << DumpTime.count() << "ms)\n\n\n";
+		}
 
-	while (true)
-	{
-		if (GetAsyncKeyState(VK_F6) & 1)
-		{
+		if (GetAsyncKeyState(VK_F6) & 1) {
 			fclose(stderr);
-			if (Dummy) fclose(Dummy);
+			if (Dummy) fclose(Dummy);  // Now Dummy is nullptr if never allocated
 			FreeConsole();
 
 			FreeLibraryAndExitThread(Module, 0);
@@ -89,13 +85,11 @@ DWORD MainThread(HMODULE Module)
 	return 0;
 }
 
-BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
-{
-	switch (reason)
-	{
-	case DLL_PROCESS_ATTACH:
-		CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, hModule, 0, 0);
-		break;
+BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved) {
+	switch (reason) {
+		case DLL_PROCESS_ATTACH:
+			CreateThread(0, 0, (LPTHREAD_START_ROUTINE)MainThread, hModule, 0, 0);
+			break;
 	}
 
 	return TRUE;
